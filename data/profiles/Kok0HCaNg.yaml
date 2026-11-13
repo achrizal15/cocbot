@@ -18,8 +18,8 @@ search:
   max_next: 60
 army:
   source: current
-  slots: 12
-  deploy: all_slots
+  slots: 10
+  deploy: spread_sides
   sides: 2
   use_heroes: true
   use_spells: true

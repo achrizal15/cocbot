@@ -31,7 +31,8 @@ class SearchConfig(BaseModel):
 
 class ArmyConfig(BaseModel):
     source: Literal["current"] = "current"
-    slots: int = 12
+    preset: Literal["2_troops", "3_troops"] = "2_troops"
+    slots: int = 8
     deploy: Literal["spread_sides", "one_side", "circle", "all_slots"] = "all_slots"
     sides: int = 2
     use_heroes: bool = True

@@ -269,19 +269,15 @@ class CocBotApp(App):
 
             yield Label("— Rules Pengerahan Pasukan —", classes="section-title")
             with Horizontal(classes="form-row"):
-                yield Label("Grid Bilah Pasukan:", classes="form-label")
+                yield Label("Formasi Pasukan:", classes="form-label")
                 yield Select(
                     [
-                        ("📐 12 Kotak (Akun TH Anda)", 12),
-                        ("📐 11 Kotak", 11),
-                        ("📐 13 Kotak", 13),
-                        ("📐 10 Kotak", 10),
-                        ("📐 14 Kotak", 14),
-                        ("🔍 Auto Deteksi Kontras", 0),
+                        ("⚔️ Formasi 1 (2 Troops + 1 Bengkel + 4 Hero + 1 Spell)", "2_troops"),
+                        ("⚔️ Formasi 2 (3 Troops + 1 Bengkel + 4 Hero + 1 Spell)", "3_troops"),
                     ],
-                    id="farm-army-slots",
-                    prompt="Pilih Jumlah Kotak Bilah",
-                    value=12,
+                    id="farm-army-preset",
+                    prompt="Pilih Formasi Pasukan",
+                    value="2_troops",
                     classes="form-input",
                 )
             with Horizontal(classes="form-row"):
@@ -434,7 +430,7 @@ class CocBotApp(App):
         army = getattr(p, "army", None)
         if army:
             try:
-                self.query_one("#farm-army-slots", Select).value = getattr(army, "slots", 12)
+                self.query_one("#farm-army-preset", Select).value = getattr(army, "preset", "2_troops")
             except Exception:
                 pass
             try:
@@ -836,10 +832,9 @@ class CocBotApp(App):
             self._profile.search.relax_after_next = _get_int("farm-relax-after", 10)
 
             # Update army config
-            try:
-                self._profile.army.slots = int(_get_select("farm-army-slots", "12"))
-            except Exception:
-                self._profile.army.slots = 12
+            preset = _get_select("farm-army-preset", "2_troops")
+            self._profile.army.preset = preset
+            self._profile.army.slots = 8 if preset == "2_troops" else 9
             self._profile.army.deploy = _get_select("farm-army-deploy", "all_slots")
             self._profile.army.use_heroes = _get_switch("farm-army-heroes", True)
             self._profile.army.use_spells = _get_switch("farm-army-spells", True)
