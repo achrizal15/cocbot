@@ -260,67 +260,59 @@ class Attacker:
             (640, 340), (600, 300), (680, 380), (640, 420)
         ]
 
-        total_slots, centers = self._detect_tray_slots(img)
-        log.info("[SERANG - STEP 3] Memulai deploy presisi (multi-pass clean deploy) untuk %d slot...", total_slots)
+        centers = [int(50 + i * 96) for i in range(13)]
+        log.info("[SERANG - STEP 3] Memulai deploy absolut (Fixed Pitch 96px) untuk 13 slot...")
 
-        # Titik perimeter rumput valid di luar garis merah (bukan di air/tebing, bukan di top banner)
-        drop_points = [(140, 260), (120, 320), (140, 380), (350, 140)]
-        spell_targets = [(640, 360), (580, 320), (700, 380), (640, 420)]
-
-        # Tentukan perkiraan batas slot spell (biasanya 4-5 slot terakhir adalah spell)
-        spell_start_idx = max(total_slots - 5, 7)
+        # Titik pantai kiri absolut (100% di luar red line pada base manapun)
+        shore_points = [(50, 280), (50, 340), (50, 400)]
+        core_targets = [(640, 340), (600, 300), (680, 380)]
 
         # ── Pass 1: Kerahkan seluruh unit, hero, siege, dan spell ───────────
-        for s_idx in range(total_slots):
+        for s_idx in range(13):
             cx = centers[s_idx]
-            # 1. Pilih kotak kartu pasukan (tepat di tengah kotak, zero jitter)
+            # 1. Pilih kotak kartu pasukan
             self.device.tap(cx, 665, jitter=0)
-            time.sleep(0.18)
-            pt = drop_points[s_idx % len(drop_points)]
-
-            if s_idx < spell_start_idx:
-                # Hold 1.8 detik di titik aman utama untuk menguras pasukan massal
-                self.device.hold(pt[0], pt[1], duration_ms=1800)
-                time.sleep(0.10)
-                # Tap di 2 titik berbeda di sepanjang pantai aman untuk menjamin Hero / Siege / Golem langsung turun
-                alt_pt = drop_points[(s_idx + 1) % len(drop_points)]
-                self.device.tap(pt[0], pt[1], jitter=0)
-                time.sleep(0.08)
-                self.device.tap(alt_pt[0], alt_pt[1], jitter=0)
-                time.sleep(0.08)
-            else:
-                # Khusus slot spell: tap berkali-kali ke core base untuk melempar seluruh stack (misal Earthquake x4)
-                for spt in spell_targets + spell_targets[:2]:
-                    self.device.tap(spt[0], spt[1], jitter=6)
-                    time.sleep(0.10)
-
             time.sleep(0.15)
+
+            pt = shore_points[s_idx % len(shore_points)]
+
+            # 2. Tap tegas 2x di pantai luar (SEKETIKA menurunkan Hero, Mesin, Golem, unit tunggal)
+            self.device.tap(pt[0], pt[1], jitter=0)
+            time.sleep(0.08)
+            self.device.tap(pt[0], pt[1], jitter=0)
+            time.sleep(0.08)
+
+            # 3. Hold 1.5 detik (menguras tuntas pasukan massal jika slot ini adalah troop)
+            self.device.hold(pt[0], pt[1], duration_ms=1500)
+            time.sleep(0.08)
+
+            # 4. Tap di core base untuk melempar spell (jika slot ini adalah spell)
+            for spt in core_targets:
+                self.device.tap(spt[0], spt[1], jitter=4)
+                time.sleep(0.08)
+
+            time.sleep(0.12)
 
         # ── Pass 2: Clean sweep (sapuan ulang untuk menguras tuntas sisa pasukan) ─
         log.info("[SERANG - STEP 3] Melakukan sapuan kedua (clean sweep) agar tidak ada sisa pasukan...")
-        time.sleep(0.4)
-        for s_idx in range(total_slots):
+        time.sleep(0.3)
+        for s_idx in range(13):
             cx = centers[s_idx]
             self.device.tap(cx, 665, jitter=0)
-            time.sleep(0.14)
-            pt = drop_points[(s_idx + 1) % len(drop_points)]
-            if s_idx < spell_start_idx:
-                alt_pt = drop_points[(s_idx + 2) % len(drop_points)]
-                time.sleep(0.06)
-                self.device.tap(alt_pt[0], alt_pt[1], jitter=0)
-                time.sleep(0.06)
-                self.device.hold(pt[0], pt[1], duration_ms=1200)
-                time.sleep(0.08)
-            else:
-                for spt in spell_targets:
-                    self.device.tap(spt[0], spt[1], jitter=6)
-                    time.sleep(0.08)
+            time.sleep(0.12)
+            pt = shore_points[(s_idx + 1) % len(shore_points)]
+            self.device.tap(pt[0], pt[1], jitter=0)
+            time.sleep(0.06)
+            self.device.hold(pt[0], pt[1], duration_ms=1200)
+            time.sleep(0.08)
+            self.device.tap(core_targets[0][0], core_targets[0][1], jitter=4)
+            time.sleep(0.08)
 
-        # ── Pass 3: Aktivasi kemampuan Hero setelah 4.5 detik ────────────────
-        log.info("[SERANG - STEP 3] Menunggu 4.5 detik lalu mengaktifkan kemampuan spesial Hero...")
-        self._sleep(4000, 5000)
-        # Hero biasanya berada di rentang slot 3 sampai 7
-        for hs in range(3, min(8, total_slots)):
+        # ── Pass 3: Aktivasi kemampuan Hero setelah 4 detik ────────────────
+        log.info("[SERANG - STEP 3] Menunggu 4 detik lalu mengaktifkan kemampuan spesial Hero...")
+        self._sleep(3800, 4800)
+        # Hero biasanya berada di rentang slot 2 sampai 8 (King, Queen, Warden, Champion)
+        for hs in range(2, 8):
             cx = centers[hs]
             self.device.tap(cx, 665, jitter=0)
             time.sleep(0.15)
@@ -465,44 +457,9 @@ class Attacker:
                 return True
             self._sleep(1000, 1800)
     def _detect_tray_slots(self, img: np.ndarray | None = None) -> tuple[int, list[int]]:
-        """Return exact number of cards and centers via fixed grid or auto detection."""
-        # 1. Metode Grid Matematis Tetap (jika diset di config, default 12 slot)
-        configured_slots = getattr(self.config.army, "slots", 12)
-        if configured_slots > 0:
-            w = 1280.0 / configured_slots
-            centers = [int((i + 0.5) * w) for i in range(configured_slots)]
-            return configured_slots, centers
-
-        # 2. Fallback auto deteksi jika slots diset 0
-        import cv2
-        if img is None:
-            img = self.device.screenshot()
-        if img is None or getattr(img, "size", 0) == 0:
-            w = 1280.0 / 12.0
-            return 12, [int((i + 0.5) * w) for i in range(12)]
-        tray = img[640:710, :]
-        gray = cv2.cvtColor(tray, cv2.COLOR_BGR2GRAY)
-
-        best_n = 12
-        best_score = -1e9
-        for n in range(9, 15):
-            w = 1280.0 / n
-            border_scores = []
-            for k in range(1, n):
-                bx = int(k * w)
-                left_center = int((k - 0.5) * w)
-                border_val = float(gray[:, max(0, bx - 3):min(1280, bx + 3)].mean())
-                center_val = float(gray[:, max(0, left_center - 10):min(1280, left_center + 10)].mean())
-                border_scores.append(center_val - border_val)
-            score = float(np.mean(border_scores))
-            if score > best_score:
-                best_score = score
-                best_n = n
-
-        w = 1280.0 / best_n
-        centers = [int((i + 0.5) * w) for i in range(best_n)]
-        return best_n, centers
-
+        """Return exact number of cards and centers via Fixed-Pitch 96px."""
+        centers = [int(50 + i * 96) for i in range(13)]
+        return 13, centers
     def _get_slot_center(self, slot_idx: int, img: np.ndarray | None = None) -> tuple[int, int]:
         """Compute screen (x, y) center coordinates for a slot."""
         _, centers = self._detect_tray_slots(img)
