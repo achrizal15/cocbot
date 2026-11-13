@@ -485,6 +485,7 @@ class CocBotApp(App):
     # ── button handlers ──────────────────────────────────────────
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
+        bid = event.button.id
         if bid == "btn-start":
             if self._status != "Running":
                 try:
