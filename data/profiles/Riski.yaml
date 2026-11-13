@@ -1,0 +1,52 @@
+name: Riski
+th: 4
+mode: classic
+stop_when:
+  rule: any
+  gold: ''
+  elixir: ''
+  dark: 0
+search:
+  min_gold: 1000
+  min_elixir: 1000
+  min_dark: 0
+  rule: any
+  total_min: 0
+  relax_after_next: 40
+  relax_percent: 10
+  max_next: 20
+army:
+  source: current
+  deploy: spread_sides
+  sides: 2
+  use_heroes: true
+  use_spells: true
+upgrade:
+  enabled: true
+  sort_by: cheapest
+  keep_reserve:
+    gold: 15000
+    elixir: 15000
+  priority:
+  - storage
+  - collector
+  - army
+  - defense
+  - hero
+  - wall
+  walls_when_resource_over: 0.9
+humanize:
+  session_minutes:
+  - 60
+  - 150
+  break_minutes:
+  - 15
+  - 45
+  tap_jitter_px: 3
+  delay_ms:
+  - 50
+  - 100
+telegram:
+  enabled: false
+  bot_token: ''
+  chat_id: ''

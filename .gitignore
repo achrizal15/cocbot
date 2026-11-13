@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# BlueStacks logs & debug captures
+debug/
+*.log
+
+# Personal screenshots
+data/screenshots/
+data/shots/
+
+# IDE
+.vscode/
+.idea/

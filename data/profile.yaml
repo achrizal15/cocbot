@@ -1,0 +1,53 @@
+name: NORTALS INDIA
+th: 8
+mode: classic
+stop_when:
+  rule: any
+  gold: full
+  elixir: full
+  dark: 0
+search:
+  min_th: 0
+  min_gold: 800000
+  min_elixir: 900000
+  min_dark: 1
+  rule: any
+  total_min: 0
+  relax_after_next: 10
+  relax_percent: 50
+  max_next: 60
+army:
+  source: current
+  deploy: spread_sides
+  sides: 2
+  use_heroes: true
+  use_spells: true
+upgrade:
+  enabled: false
+  sort_by: resource
+  keep_reserve:
+    gold: 60000
+    elixir: 60000
+  priority:
+  - storage
+  - collector
+  - army
+  - defense
+  - hero
+  - wall
+  walls_when_resource_over: 0.9
+humanize:
+  session_minutes:
+  - 60
+  - 150
+  break_minutes:
+  - 15
+  - 45
+  tap_jitter_px: 6
+  delay_ms:
+  - 120
+  - 450
+telegram:
+  enabled: false
+  bot_token: ''
+  chat_id: ''
