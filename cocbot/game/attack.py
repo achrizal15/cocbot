@@ -465,14 +465,21 @@ class Attacker:
                 return True
             self._sleep(1000, 1800)
     def _detect_tray_slots(self, img: np.ndarray | None = None) -> tuple[int, list[int]]:
-        """Detect exact number of cards (9..14) in the battle tray and compute exact centers."""
+        """Return exact number of cards and centers via fixed grid or auto detection."""
+        # 1. Metode Grid Matematis Tetap (jika diset di config, default 12 slot)
+        configured_slots = getattr(self.config.army, "slots", 12)
+        if configured_slots > 0:
+            w = 1280.0 / configured_slots
+            centers = [int((i + 0.5) * w) for i in range(configured_slots)]
+            return configured_slots, centers
+
+        # 2. Fallback auto deteksi jika slots diset 0
         import cv2
         if img is None:
             img = self.device.screenshot()
         if img is None or getattr(img, "size", 0) == 0:
             w = 1280.0 / 12.0
             return 12, [int((i + 0.5) * w) for i in range(12)]
-
         tray = img[640:710, :]
         gray = cv2.cvtColor(tray, cv2.COLOR_BGR2GRAY)
 

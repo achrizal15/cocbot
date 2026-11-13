@@ -269,10 +269,26 @@ class CocBotApp(App):
 
             yield Label("— Rules Pengerahan Pasukan —", classes="section-title")
             with Horizontal(classes="form-row"):
+                yield Label("Grid Bilah Pasukan:", classes="form-label")
+                yield Select(
+                    [
+                        ("📐 12 Kotak (Akun TH Anda)", 12),
+                        ("📐 11 Kotak", 11),
+                        ("📐 13 Kotak", 13),
+                        ("📐 10 Kotak", 10),
+                        ("📐 14 Kotak", 14),
+                        ("🔍 Auto Deteksi Kontras", 0),
+                    ],
+                    id="farm-army-slots",
+                    prompt="Pilih Jumlah Kotak Bilah",
+                    value=12,
+                    classes="form-input",
+                )
+            with Horizontal(classes="form-row"):
                 yield Label("Deploy Strategy:", classes="form-label")
                 yield Select(
                     [
-                        ("⚡ Kerahkan Semua Kotak (All 13 Slots)", "all_slots"),
+                        ("⚡ Kerahkan Semua Kotak (All Slots)", "all_slots"),
                         ("🌊 Sebar di 2 Sisi Base", "spread_sides"),
                     ],
                     id="farm-army-deploy",
@@ -417,6 +433,10 @@ class CocBotApp(App):
 
         army = getattr(p, "army", None)
         if army:
+            try:
+                self.query_one("#farm-army-slots", Select).value = getattr(army, "slots", 12)
+            except Exception:
+                pass
             try:
                 self.query_one("#farm-army-deploy", Select).value = getattr(army, "deploy", "all_slots")
             except Exception:
@@ -816,10 +836,13 @@ class CocBotApp(App):
             self._profile.search.relax_after_next = _get_int("farm-relax-after", 10)
 
             # Update army config
+            try:
+                self._profile.army.slots = int(_get_select("farm-army-slots", "12"))
+            except Exception:
+                self._profile.army.slots = 12
             self._profile.army.deploy = _get_select("farm-army-deploy", "all_slots")
             self._profile.army.use_heroes = _get_switch("farm-army-heroes", True)
             self._profile.army.use_spells = _get_switch("farm-army-spells", True)
-
             save_profile(self._profile)
             self._log(
                 f"[green]Rules Farming disimpan: Target Min G={self._profile.search.min_gold}, "

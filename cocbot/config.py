@@ -31,11 +31,11 @@ class SearchConfig(BaseModel):
 
 class ArmyConfig(BaseModel):
     source: Literal["current"] = "current"
-    deploy: Literal["spread_sides", "one_side", "circle"] = "spread_sides"
+    slots: int = 12
+    deploy: Literal["spread_sides", "one_side", "circle", "all_slots"] = "all_slots"
     sides: int = 2
     use_heroes: bool = True
-    use_spells: bool = False
-
+    use_spells: bool = True
 
 class UpgradeConfig(BaseModel):
     enabled: bool = True
