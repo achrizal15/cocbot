@@ -65,24 +65,41 @@ class AdbDevice:
     # ── connection ───────────────────────────────────────────────────────
 
     def connect(self) -> bool:
-        """Run ``adb connect`` and return *True* on success."""
+        """Run ``adb connect`` and ensure device state is healthy ('device' not 'offline')."""
         try:
-            r = subprocess.run(
-                ["adb", "connect", self.serial],
-                capture_output=True, text=True, timeout=10,
+            # Cek status saat ini
+            r_st = subprocess.run(
+                ["adb", "-s", self.serial, "get-state"],
+                capture_output=True, text=True, timeout=5,
             )
-            ok = "connected" in r.stdout.lower()
+            state = r_st.stdout.strip()
+            if state != "device":
+                # Disconnect sesi stale/offline terlebih dahulu
+                subprocess.run(
+                    ["adb", "disconnect", self.serial],
+                    capture_output=True, text=True, timeout=5,
+                )
+                time.sleep(0.3)
+                subprocess.run(
+                    ["adb", "connect", self.serial],
+                    capture_output=True, text=True, timeout=10,
+                )
+
+            r_chk = subprocess.run(
+                ["adb", "-s", self.serial, "get-state"],
+                capture_output=True, text=True, timeout=5,
+            )
+            ok = r_chk.stdout.strip() == "device"
             self._connected = ok
             if ok:
                 self._query_display_size()
             else:
-                log.warning("adb connect failed: %s", r.stdout.strip())
+                log.warning("adb connect failed or device offline: state=%s", r_chk.stdout.strip())
             return ok
         except Exception:
             log.exception("adb connect error")
             self._connected = False
             return False
-
     def is_connected(self) -> bool:
         """Check device state via ``adb get-state``."""
         try:

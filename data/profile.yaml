@@ -1,4 +1,4 @@
-name: ST ARMY PH
+name: Kok0HCaNg
 th: 8
 mode: classic
 stop_when:
@@ -20,7 +20,7 @@ army:
   source: current
   preset: 2_troops
   slots: 8
-  deploy: all_slots
+  deploy: spread_sides
   sides: 2
   use_heroes: true
   use_spells: true

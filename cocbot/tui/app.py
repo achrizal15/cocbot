@@ -485,9 +485,15 @@ class CocBotApp(App):
     # ── button handlers ──────────────────────────────────────────
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        bid = event.button.id
         if bid == "btn-start":
-            self._do_start()
+            if self._status != "Running":
+                try:
+                    self.query_one("#btn-start", Button).disabled = True
+                    self.query_one("#btn-stop", Button).disabled = False
+                except Exception:
+                    pass
+                self._update_status("Running")
+                self._do_start()
         elif bid == "btn-stop":
             self._do_stop()
         elif bid in ("btn-screenshot", "btn-dev-screenshot"):
@@ -617,19 +623,23 @@ class CocBotApp(App):
 
     @work(thread=True)
     def _do_start(self) -> None:
-        if self._status == "Running":
+        if self._runner is not None and self._runner.is_running():
             return
 
         self.call_from_thread(self._log, "Starting bot...")
 
         # Ensure ADB connected
-        if self._adb is None:
+        if self._adb is None or not self._adb.is_connected():
             self.call_from_thread(self._log, "Connecting ADB...")
             self._ensure_adb()
-            if self._adb is None:
-                self.call_from_thread(self._log, "[red]ADB connection failed[/red]")
+            if self._adb is None or not self._adb.is_connected():
+                self.call_from_thread(self._log, "[red]ADB connection failed — pastikan BlueStacks menyala![/red]")
+                self.call_from_thread(self._update_status, "Stopped")
+                self.call_from_thread(lambda: (
+                    self.query_one("#btn-start", Button).__setattr__("disabled", False),
+                    self.query_one("#btn-stop", Button).__setattr__("disabled", True),
+                ))
                 return
-
         # Load profile
         if self._profile is None:
             self._load_current_profile()
