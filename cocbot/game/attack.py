@@ -266,8 +266,7 @@ class Attacker:
         spell_targets = [(640, 340), (600, 300), (680, 380)]
 
         def _get_cx(s: int) -> int:
-            return int(50 + s * 96)
-
+            return int(127 + s * 100)
         # ── 1. Turunkan Bengkel / Siege Machine (Slot khusus bengkel) ──────
         for s in siege_slots:
             self.device.tap(_get_cx(s), 665, jitter=0)
@@ -471,9 +470,8 @@ class Attacker:
                 return True
             self._sleep(1000, 1800)
     def _detect_tray_slots(self, img: np.ndarray | None = None) -> tuple[int, list[int]]:
-        """Return exact number of cards and centers via Fixed-Pitch 96px."""
-        centers = [int(50 + i * 96) for i in range(13)]
-        return 13, centers
+        centers = [int(127 + i * 100) for i in range(10)]
+        return 10, centers
     def _get_slot_center(self, slot_idx: int, img: np.ndarray | None = None) -> tuple[int, int]:
         """Compute screen (x, y) center coordinates for a slot."""
         _, centers = self._detect_tray_slots(img)
