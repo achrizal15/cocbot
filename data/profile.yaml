@@ -11,7 +11,7 @@ search:
   min_gold: 1000000
   min_elixir: 1000000
   min_dark: 1
-  rule: gold_and_elixir
+  rule: any
   total_min: 0
   relax_after_next: 10
   relax_percent: 50
@@ -20,7 +20,7 @@ army:
   source: current
   preset: 2_troops
   slots: 8
-  deploy: all_slots
+  deploy: spread_sides
   sides: 2
   use_heroes: true
   use_spells: true
