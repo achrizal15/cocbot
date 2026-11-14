@@ -20,7 +20,7 @@ army:
   source: current
   preset: 2_troops
   slots: 8
-  deploy: spread_sides
+  deploy: all_slots
   sides: 2
   use_heroes: true
   use_spells: true

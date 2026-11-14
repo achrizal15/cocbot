@@ -193,20 +193,17 @@ class OCR:
             if val is not None and val > 0:
                 raw_results.append(val)
 
-        if anchor is not None and anchor > 0 and raw_results:
-            # Keep only raw results whose digits start with anchor digits
-            prefix = str(anchor)
-            matching = [r for r in raw_results if str(r).startswith(prefix)]
-            if matching:
-                return max(matching)
-            # No raw result matches anchor prefix → trust anchor
-            return anchor
+        # Filter valid candidates (CoC numbers are <= 25,000,000)
+        candidates = [r for r in raw_results if 0 < r <= 25_000_000]
+        if anchor is not None and 0 < anchor <= 25_000_000:
+            candidates.append(anchor)
 
-        if anchor is not None and anchor > 0:
-            return anchor
-        if raw_results:
-            return min(raw_results)  # conservative when no anchor
-        return None
+        if not candidates:
+            return None
+
+        # Prefer the candidate with the most digits (numbers only lose digits when separated by spaces/commas)
+        candidates.sort(key=lambda x: (len(str(x)), x), reverse=True)
+        return candidates[0]
 
 
 def _parse_digits(text: str) -> int | None:

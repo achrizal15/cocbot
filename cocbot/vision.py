@@ -411,35 +411,63 @@ class Vision:
             "Z": "2", "z": "2", "B": "8", "S": "5", "s": "5",
             "T": "7", "G": "6", "b": "6", "A": "4",
         }
-
         def parse_slice(c: np.ndarray) -> int:
-            if c.size == 0:
+            if c is None or c.size == 0:
                 return 0
-            all_words = []
-            for s in (2, 3, 1):
-                ws = self._ocr.recognize(c, scale=s)
-                for w in ws:
-                    # Ignore small icon edge artifacts
-                    if w.x < 6 and w.w < 15 and w.text in "026oO":
-                        continue
-                    overlap = False
-                    for existing in all_words:
-                        if not (w.x + w.w < existing.x - 3 or w.x > existing.x + existing.w + 3):
-                            overlap = True
-                            break
-                    if not overlap:
-                        all_words.append(w)
-            all_words.sort(key=lambda w: w.x)
-            cleaned = []
-            for w in all_words:
-                for ch in w.text:
-                    if ch.isdigit():
-                        cleaned.append(ch)
-                    elif ch in mapping:
-                        cleaned.append(mapping[ch])
-            digits_str = "".join(cleaned).lstrip("0")
-            return int(digits_str) if digits_str else 0
+            candidates: list[int] = []
 
+            # 1. Evaluasi pembacaan skala 1, 2, 3 secara mandiri
+            for s in (1, 2, 3):
+                ws = self._ocr.recognize(c, scale=s)
+                if not ws:
+                    continue
+                ws_sorted = sorted(ws, key=lambda w: w.x)
+                cleaned = []
+                for w in ws_sorted:
+                    for ch in w.text:
+                        if ch.isdigit():
+                            cleaned.append(ch)
+                        elif ch in mapping:
+                            cleaned.append(mapping[ch])
+                digits_str = "".join(cleaned).lstrip("0")
+                if digits_str:
+                    try:
+                        v = int(digits_str)
+                        if 0 < v <= 25_000_000:
+                            candidates.append(v)
+                    except ValueError:
+                        pass
+
+            # 2. Evaluasi pembacaan black-on-white inverted mask (paling tajam membaca angka 7 digit)
+            try:
+                import cv2
+                gray = cv2.cvtColor(c, cv2.COLOR_BGR2GRAY)
+                _, thresh = cv2.threshold(gray, 165, 255, cv2.THRESH_BINARY)
+                padded = cv2.copyMakeBorder(thresh, 15, 15, 15, 15, cv2.BORDER_CONSTANT, value=0)
+                inv = cv2.bitwise_not(padded)
+                ws_inv = self._ocr.recognize(cv2.cvtColor(inv, cv2.COLOR_GRAY2BGR), scale=1)
+                ws_inv_sorted = sorted(ws_inv, key=lambda w: w.x)
+                cleaned_inv = []
+                for w in ws_inv_sorted:
+                    for ch in w.text:
+                        if ch.isdigit():
+                            cleaned_inv.append(ch)
+                        elif ch in mapping:
+                            cleaned_inv.append(mapping[ch])
+                digits_str_inv = "".join(cleaned_inv).lstrip("0")
+                if digits_str_inv:
+                    v_inv = int(digits_str_inv)
+                    if 0 < v_inv <= 25_000_000:
+                        candidates.append(v_inv)
+            except Exception:
+                pass
+
+            if not candidates:
+                return 0
+
+            # Prioritaskan kandidat dengan digit terbanyak (7 digit jutaan > 3 digit ratusan yang terpotong)
+            candidates.sort(key=lambda x: (len(str(x)), x), reverse=True)
+            return candidates[0]
         g = parse_slice(crop_g)
         e = parse_slice(crop_e)
         d = parse_slice(crop_d)
