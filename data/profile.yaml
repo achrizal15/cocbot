@@ -8,10 +8,10 @@ stop_when:
   dark: 0
 search:
   min_th: 0
-  min_gold: 800000
-  min_elixir: 900000
+  min_gold: 1000000
+  min_elixir: 1000000
   min_dark: 1
-  rule: any
+  rule: gold_and_elixir
   total_min: 0
   relax_after_next: 10
   relax_percent: 50

@@ -261,40 +261,84 @@ class Attacker:
             spell_slots = [7]
             log.info("[SERANG - STEP 3] Memulai deploy Formasi: 2 Troops, 1 Bengkel, 4 Hero, 1 Spell...")
 
-        # Titik pantai kiri absolut (100% di luar red line pada base manapun)
-        shore_point = (50, 340)
-        spell_targets = [(640, 340), (600, 300), (680, 380)]
+        strategy = getattr(self.config.army, "deploy", "all_slots")
+
+        # Titik sebaran pantai kiri (tersebar rapi sepanjang garis pantai luar)
+        left_shore = [
+            (100, 230),  # Titik 1: Pantai atas
+            (85, 290),   # Titik 2: Pantai tengah-atas
+            (80, 350),   # Titik 3: Pantai tengah
+            (85, 410),   # Titik 4: Pantai tengah-bawah
+            (100, 470),  # Titik 5: Pantai bawah
+        ]
+        # Titik sebaran hutan kanan (untuk strategi sebar 2 sisi)
+        right_forest = [
+            (1170, 230), # Titik 1: Hutan atas
+            (1190, 290), # Titik 2: Hutan tengah-atas
+            (1200, 350), # Titik 3: Hutan tengah
+            (1190, 410), # Titik 4: Hutan tengah-bawah
+            (1170, 470), # Titik 5: Hutan bawah
+        ]
+
+        spell_targets = [(640, 340), (580, 300), (700, 380), (640, 420)]
 
         def _get_cx(s: int) -> int:
             return int(127 + s * 100)
-        # ── 1. Turunkan Bengkel / Siege Machine (Slot khusus bengkel) ──────
+
+        # ── 1. Turunkan Bengkel / Siege Machine di Sudut Aman ───────────────
         for s in siege_slots:
             self.device.tap(_get_cx(s), 665, jitter=0)
             time.sleep(0.15)
-            self.device.tap(shore_point[0], shore_point[1], jitter=0)
+            # Turunkan di sudut pantai atas agar menembak aman dari jarak jauh
+            bengkel_pt = left_shore[0]
+            self.device.tap(bengkel_pt[0], bengkel_pt[1], jitter=0)
             time.sleep(0.08)
-            self.device.tap(shore_point[0], shore_point[1], jitter=0)
+            self.device.tap(bengkel_pt[0], bengkel_pt[1], jitter=0)
             time.sleep(0.12)
 
-        # ── 2. Turunkan Troops Massal (Slot troops) ─────────────────────────
-        for s in troop_slots:
+        # ── 2. Turunkan Troops Massal Menyebar di Sepanjang Garis Pantai ─────
+        log.info("[SERANG - STEP 3] Menyebarkan pasukan massal di sepanjang garis pantai...")
+        for idx, s in enumerate(troop_slots):
             self.device.tap(_get_cx(s), 665, jitter=0)
             time.sleep(0.15)
-            self.device.hold(shore_point[0], shore_point[1], duration_ms=1800)
-            time.sleep(0.08)
-            self.device.tap(shore_point[0], shore_point[1], jitter=0)
-            time.sleep(0.10)
 
-        # ── 3. Turunkan 4 Hero (Slot hero) ──────────────────────────────────
-        for s in hero_slots:
+            if strategy == "spread_sides" and idx % 2 == 1:
+                # Sebar di sisi hutan kanan
+                pts = [right_forest[0], right_forest[2], right_forest[4]]
+            else:
+                # Sebar di sisi pantai kiri
+                pts = [left_shore[0], left_shore[2], left_shore[4]] if idx == 0 else [left_shore[1], left_shore[3]]
+
+            # Hold terbagi di beberapa titik berbeda agar pasukan menyebar menjadi barisan
+            hold_time = int(1800 / len(pts))
+            for p in pts:
+                self.device.hold(p[0], p[1], duration_ms=hold_time)
+                time.sleep(0.06)
+                self.device.tap(p[0], p[1], jitter=0)
+                time.sleep(0.06)
+
+        # ── 3. Turunkan 4 Hero Menyebar Rapi Bersama Pasukan ────────────────
+        log.info("[SERANG - STEP 3] Menurunkan 4 Hero menyebar rapi...")
+        hero_drop_points = [
+            left_shore[1],  # King di pantai tengah-atas
+            left_shore[2],  # Queen di pantai tengah
+            left_shore[3],  # Warden di pantai tengah-bawah
+            left_shore[4],  # Champion di pantai bawah
+        ]
+        if strategy == "spread_sides" and len(hero_slots) >= 4:
+            # 2 Hero di kiri (King & Queen), 2 Hero di kanan (Warden & Champion)
+            hero_drop_points = [left_shore[1], left_shore[3], right_forest[1], right_forest[3]]
+
+        for h_idx, s in enumerate(hero_slots):
             self.device.tap(_get_cx(s), 665, jitter=0)
             time.sleep(0.15)
-            self.device.tap(shore_point[0], shore_point[1], jitter=0)
+            h_pt = hero_drop_points[h_idx % len(hero_drop_points)]
+            self.device.tap(h_pt[0], h_pt[1], jitter=0)
             time.sleep(0.08)
-            self.device.tap(shore_point[0], shore_point[1], jitter=0)
+            self.device.tap(h_pt[0], h_pt[1], jitter=0)
             time.sleep(0.12)
 
-        # ── 4. Lempar Spell ke Core Base (Slot spell) ──────────────────────
+        # ── 4. Lempar Spell Menyebar di Core Base Musuh ────────────────────
         for s in spell_slots:
             self.device.tap(_get_cx(s), 665, jitter=0)
             time.sleep(0.15)
@@ -302,24 +346,26 @@ class Attacker:
                 self.device.tap(spt[0], spt[1], jitter=4)
                 time.sleep(0.08)
 
-        # ── 5. Clean Sweep (Sapuan ulang cepat agar tidak ada yang tertinggal)
+        # ── 5. Clean Sweep (Sapuan ulang cepat menyebar) ───────────────────
         time.sleep(0.3)
-        for s in siege_slots + hero_slots:
+        for idx, s in enumerate(troop_slots):
             self.device.tap(_get_cx(s), 665, jitter=0)
             time.sleep(0.08)
-            self.device.tap(shore_point[0], shore_point[1], jitter=0)
-            time.sleep(0.08)
+            p = left_shore[(idx + 2) % len(left_shore)]
+            self.device.hold(p[0], p[1], duration_ms=1000)
+            time.sleep(0.06)
 
-        for s in troop_slots:
+        for h_idx, s in enumerate(hero_slots):
             self.device.tap(_get_cx(s), 665, jitter=0)
             time.sleep(0.08)
-            self.device.hold(shore_point[0], shore_point[1], duration_ms=1200)
-            time.sleep(0.08)
+            h_pt = hero_drop_points[h_idx % len(hero_drop_points)]
+            self.device.tap(h_pt[0], h_pt[1], jitter=0)
+            time.sleep(0.06)
 
         for s in spell_slots:
             self.device.tap(_get_cx(s), 665, jitter=0)
             time.sleep(0.08)
-            for spt in spell_targets:
+            for spt in spell_targets[:3]:
                 self.device.tap(spt[0], spt[1], jitter=4)
                 time.sleep(0.06)
 
@@ -333,7 +379,7 @@ class Attacker:
             self.device.tap(cx, 665, jitter=0)
             time.sleep(0.15)
 
-        log.info("[SERANG - STEP 3 SELESAI] Seluruh pasukan, bengkel, 4 hero, dan spell telah 100%% dikerahkan!")
+        log.info("[SERANG - STEP 3 SELESAI] Seluruh pasukan, bengkel, 4 hero, dan spell telah menyebar tuntas!")
         return True
     def end_battle(self) -> None:
         """End the current battle / search session without deploying."""
