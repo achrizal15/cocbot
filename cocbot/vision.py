@@ -87,7 +87,7 @@ _SCREEN_MARKERS: list[tuple[ScreenType, list[str]]] = [
     (ScreenType.HOME,         ["toko"]),
     (ScreenType.HOME,         ["gratis"]),
     (ScreenType.HOME,         ["bangun"]),
-
+]
 # ---------------------------------------------------------------------------
 # Fuzzy matching
 # ---------------------------------------------------------------------------
@@ -302,6 +302,15 @@ class Vision:
                 or (_fuzzy_match(panel_blob, "peningkatan") and _fuzzy_match(panel_blob, "lain"))
             ):
                 return ScreenType.BUILD_SUGGEST
+        # Check bottom loading tip bar crop
+        tip_crop = img[570:690, 300:980]
+        if tip_crop.size > 0:
+            tip_words = self._ocr.recognize(tip_crop, scale=2)
+            tip_blob = " ".join(w.text for w in tip_words)
+            if any(_fuzzy_match(tip_blob, k) for k in ["memuat", "melompati", "senbuan", "artileri", "bisa", "lawan"]):
+                # Pastikan ini bukan HOME (HOME punya Toko atau Attack button)
+                if not any(_fuzzy_match(tip_blob, k) for k in ["toko", "bangun"]):
+                    return ScreenType.LOADING
 
         words = self._ocr.recognize(img, scale=1)
         if not words:
