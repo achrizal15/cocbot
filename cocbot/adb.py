@@ -114,13 +114,13 @@ class AdbDevice:
             self._connected = False
 
     def is_emulator_running(self) -> bool:
-        """Check if BlueStacks HD-Player process is running in Windows."""
+        """Fast check if BlueStacks HD-Player process is running in Windows (<0.2s)."""
         try:
             r = subprocess.run(
-                ["powershell", "-Command", "Get-Process -Name 'HD-Player' -ErrorAction SilentlyContinue"],
-                capture_output=True, text=True, timeout=5,
+                ["tasklist", "/FI", "IMAGENAME eq HD-Player.exe", "/NH"],
+                capture_output=True, text=True, timeout=3,
             )
-            return bool(r.stdout.strip())
+            return "HD-Player.exe" in r.stdout
         except Exception:
             return False
 
@@ -194,19 +194,23 @@ class AdbDevice:
 
     def ensure_game_running(self) -> bool:
         """Auto-reopen BlueStacks if closed/crashed, and auto-launch Clash of Clans."""
-        # 1. Ensure emulator is running
+        # 1. Quick check: if already connected and game process exists, return immediately (<0.05s)
+        if self.is_connected() and self.is_game_running():
+            return True
+
+        # 2. Ensure emulator is running in Windows
         if not self.is_emulator_running():
-            log.warning("[AUTO-RECOVERY] Emulator BlueStacks tidak berjalan! Meluncurkan otomatis...")
+            log.warning("[AUTO-RECOVERY] Emulator BlueStacks tertutup/crash! Meluncurkan otomatis...")
             if not self.launch_emulator():
                 return False
             time.sleep(3.0)
 
-        # 2. Ensure ADB connection is active
+        # 3. Ensure ADB connection is active
         if not self.is_connected():
             log.info("[AUTO-RECOVERY] Menghubungkan ulang ADB...")
             self.connect()
 
-        # 3. Ensure Clash of Clans is running
+        # 4. Ensure Clash of Clans is running
         if not self.is_game_running():
             log.warning("[AUTO-RECOVERY] Game CoC tidak berjalan/crash! Membuka game otomatis...")
             self.launch_game()
