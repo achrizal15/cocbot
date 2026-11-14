@@ -49,12 +49,11 @@ class Navigator:
         from cocbot.vision import ScreenType
 
         for attempt in range(12):
-            # Cek apakah CoC tertutup/crash
-            if hasattr(self.device, "is_game_running") and not self.device.is_game_running():
-                log.warning("[NAVIGASI] CoC terdeteksi keluar/crash! Meluncurkan ulang game CoC...")
-                self.device.launch_game()
-                self._sleep(7000, 10000)
-                continue
+            # Cek apakah emulator atau CoC tertutup/crash -> auto-launch otomatis
+            if hasattr(self.device, "ensure_game_running"):
+                if not self.device.ensure_game_running():
+                    self._sleep(3000, 5000)
+                    continue
 
             img = self.device.screenshot()
             screen = self.vision.detect_screen(img)
@@ -62,7 +61,7 @@ class Navigator:
 
             if screen == ScreenType.LOADING:
                 log.info("[NAVIGASI] Layar transisi Memuat... Menunggu desa selesai di-load...")
-                self._sleep(2500, 3500)
+                self._sleep(4000, 6000)
                 continue
             if screen == ScreenType.HOME:
                 # Deselect any selected building or wall so map is clean for next action
@@ -80,7 +79,8 @@ class Navigator:
                 log.info("[NAVIGASI] Layar Hasil Pertempuran terdeteksi -> Menekan 'Ke Beranda'...")
                 btn = self.vision.find_button(img, "beranda") or self.vision.find_button(img, "kembali")
                 self.device.tap(*(btn or (640, 615)), jitter=5)
-                self._sleep(2500, 3500)
+                # Jeda 6-8 detik agar CoC dan GPU emulator menyelesaikan alokasi aset desa tanpa terganggu screencap
+                self._sleep(6000, 8000)
                 continue
 
             # If on battle or search screen, press back doesn't work — must end battle

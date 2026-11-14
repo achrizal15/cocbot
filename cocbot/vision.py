@@ -73,8 +73,11 @@ _SCREEN_MARKERS: list[tuple[ScreenType, list[str]]] = [
     (ScreenType.ATTACK_MENU,  ["lawan", "tanding"]),
     (ScreenType.BUILD_SUGGEST, ["saran", "peningkatan"]),
     (ScreenType.BUILD_SUGGEST, ["peningkatan", "lain"]),
+    (ScreenType.LOADING,      ["memuat"]),
     (ScreenType.BATTLE,       ["total", "kerusakan"]),
     (ScreenType.BATTLE,       ["sisa", "waktu"]),
+    (ScreenType.BATTLE,       ["berakhir", "dalam"]),
+    (ScreenType.BATTLE,       ["menyerah"]),
     (ScreenType.SEARCH,       ["rampasan", "berikut"]),
     (ScreenType.SEARCH,       ["rampasan", "tersedia"]),
     (ScreenType.SEARCH,       ["akhiri", "serangan"]),
@@ -84,7 +87,6 @@ _SCREEN_MARKERS: list[tuple[ScreenType, list[str]]] = [
     (ScreenType.HOME,         ["toko"]),
     (ScreenType.HOME,         ["gratis"]),
     (ScreenType.HOME,         ["bangun"]),
-]
 
 # ---------------------------------------------------------------------------
 # Fuzzy matching
@@ -169,13 +171,15 @@ def _detect_screen_fast(img: np.ndarray) -> ScreenType | None:
             and img[200, 935].max() < 10
             and img[400, 935].max() < 10):
         return ScreenType.BUILD_SUGGEST
+    # BATTLE: Menyerah (Surrender) button at bottom-left is bright red ~(14, 13, 211)
+    if _pixel_match(img, 547, 60, (14, 13, 211), tol=35):
+        return ScreenType.BATTLE
 
     # ATTACK_MENU: modal on left half has large orange "Cari Lawan Tanding" button
     # at Y=530, X=220..360 with distinctive BGR ~(44, 173, 249)
     if (_pixel_match(img, 530, 290, (44, 173, 249), tol=35)
             or _pixel_match(img, 530, 360, (44, 173, 249), tol=35)):
         return ScreenType.ATTACK_MENU
-
     # HOME: attack button bottom-left is bright gold/orange (B~80, G~243, R~255)
     # and no attack menu or builder panel modal is open
     if _pixel_match(img, 650, 90, (80, 243, 255), tol=40):
@@ -312,7 +316,7 @@ class Vision:
                 return screen_type
         if any(_fuzzy_match(blob, k) for k in ["toko", "gratis", "bangun"]):
             return ScreenType.HOME
-        if _fuzzy_match(blob, "pertempuran") and not _fuzzy_match(blob, "cari"):
+        if _fuzzy_match(blob, "pertempuran") and not _fuzzy_match(blob, "cari") and not _fuzzy_match(blob, "berakhir"):
             return ScreenType.HOME
 
         # Corner crop fallback

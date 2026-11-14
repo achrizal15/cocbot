@@ -375,8 +375,8 @@ class Attacker:
                     self.device.tap(*btn, jitter=5)
                 else:
                     self.device.tap(640, 600, jitter=5)
-                # Berikan jeda 4-5 detik agar CoC dan GPU emulator menyelesaikan alokasi aset desa
-                self._sleep(4000, 5500)
+                # Berikan jeda 6-8 detik agar CoC dan driver GPU menyelesaikan alokasi aset desa tanpa terganggu screencap
+                self._sleep(6000, 8000)
                 return True
             self._sleep(4000, 6000)
 

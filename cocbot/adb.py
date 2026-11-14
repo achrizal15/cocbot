@@ -113,8 +113,60 @@ class AdbDevice:
         except Exception:
             self._connected = False
 
+    def is_emulator_running(self) -> bool:
+        """Check if BlueStacks HD-Player process is running in Windows."""
+        try:
+            r = subprocess.run(
+                ["powershell", "-Command", "Get-Process -Name 'HD-Player' -ErrorAction SilentlyContinue"],
+                capture_output=True, text=True, timeout=5,
+            )
+            return bool(r.stdout.strip())
+        except Exception:
+            return False
+
+    def launch_emulator(self) -> bool:
+        """Launch BlueStacks 5 (Pie64 instance) and wait for ADB port 5555."""
+        import socket
+        hd_paths = [
+            Path(r"C:\Program Files\BlueStacks_nxt\HD-Player.exe"),
+            Path(r"C:\Program Files (x86)\BlueStacks_nxt\HD-Player.exe"),
+        ]
+        exe = next((p for p in hd_paths if p.exists()), None)
+        if exe is None:
+            log.error("HD-Player.exe not found on system!")
+            return False
+
+        log.info("[AUTO-LAUNCH] Membuka BlueStacks (Pie64)...")
+        try:
+            subprocess.Popen([str(exe), "--instance", "Pie64"])
+        except Exception:
+            log.exception("Gagal membuka HD-Player.exe")
+            return False
+
+        # Poll port 5555 using quick socket connect (max 45 seconds)
+        log.info("[AUTO-LAUNCH] Menunggu emulator booting & port ADB 5555 aktif...")
+        port = 5555
+        if ":" in self.serial:
+            try:
+                port = int(self.serial.split(":")[-1])
+            except Exception:
+                port = 5555
+
+        for _ in range(35):
+            time.sleep(1.2)
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=0.8):
+                    log.info("[AUTO-LAUNCH] Port ADB %d terbuka! Menyambungkan ADB...", port)
+                    time.sleep(1.0)
+                    return self.connect()
+            except (socket.timeout, ConnectionRefusedError, OSError):
+                pass
+        return False
+
     def is_game_running(self) -> bool:
         """Check if Clash of Clans process is running in Android."""
+        if not self.is_connected():
+            self.connect()
         try:
             r = subprocess.run(
                 ["adb", "-s", self.serial, "shell", "pidof", "com.supercell.clashofclans"],
@@ -126,6 +178,8 @@ class AdbDevice:
 
     def launch_game(self) -> bool:
         """Launch Clash of Clans via am start."""
+        if not self.is_connected():
+            self.connect()
         try:
             r = subprocess.run(
                 [
@@ -137,7 +191,29 @@ class AdbDevice:
             return r.returncode == 0
         except Exception:
             return False
-    # ── screenshots ──────────────────────────────────────────────────────
+
+    def ensure_game_running(self) -> bool:
+        """Auto-reopen BlueStacks if closed/crashed, and auto-launch Clash of Clans."""
+        # 1. Ensure emulator is running
+        if not self.is_emulator_running():
+            log.warning("[AUTO-RECOVERY] Emulator BlueStacks tidak berjalan! Meluncurkan otomatis...")
+            if not self.launch_emulator():
+                return False
+            time.sleep(3.0)
+
+        # 2. Ensure ADB connection is active
+        if not self.is_connected():
+            log.info("[AUTO-RECOVERY] Menghubungkan ulang ADB...")
+            self.connect()
+
+        # 3. Ensure Clash of Clans is running
+        if not self.is_game_running():
+            log.warning("[AUTO-RECOVERY] Game CoC tidak berjalan/crash! Membuka game otomatis...")
+            self.launch_game()
+            time.sleep(8.0)
+            return self.is_game_running()
+
+        return True
 
     def screenshot(self) -> np.ndarray | None:
         """Capture screen as BGR ndarray via PNG pipe (~650 ms), with auto-retry."""
