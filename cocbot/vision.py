@@ -388,15 +388,22 @@ class Vision:
     # ------------------------------------------------------------------
 
     def read_loot(self, img: np.ndarray) -> Loot:
-        """Read available loot during the scout / search phase with high precision."""
+        """Read available loot anchored dynamically to 'Rampasan' header with multi-scale fusion."""
         if img is None or getattr(img, "size", 0) == 0:
             return Loot()
 
-        regions = {
-            "gold":   (40, 78, 235, 120),
-            "elixir": (40, 118, 235, 160),
-            "dark":   (40, 158, 235, 200),
-        }
+        # 1. Locate 'Rampasan' header Y position dynamically (shifts depending on clan/league badges)
+        ws_top = self._ocr.recognize(img[10:120, 25:250], scale=2)
+        y_anchor = 50
+        for w in ws_top:
+            if any(k in w.text.lower() for k in ["rampa", "tersed"]):
+                y_anchor = 10 + w.y + w.h
+                break
+
+        # 2. Slice resource lines relative to anchor (X starts at 48 to cleanly exclude coin/drop icons)
+        crop_g = img[y_anchor + 2: y_anchor + 38, 48:220]
+        crop_e = img[y_anchor + 38: y_anchor + 74, 48:220]
+        crop_d = img[y_anchor + 74: y_anchor + 110, 48:220]
 
         mapping = {
             "o": "0", "O": "0", "D": "0", "Q": "0",
@@ -405,41 +412,45 @@ class Vision:
             "T": "7", "G": "6", "b": "6", "A": "4",
         }
 
-        def parse_crop(crop: np.ndarray) -> int:
-            if crop.size == 0:
+        def parse_slice(c: np.ndarray) -> int:
+            if c.size == 0:
                 return 0
-            candidates: list[int] = []
-            for s in (1, 2):
-                ws = self._ocr.recognize(crop, scale=s)
-                if not ws:
-                    continue
-                sorted_ws = sorted(ws, key=lambda w: w.x)
-                cleaned: list[str] = []
-                for w in sorted_ws:
-                    for ch in w.text:
-                        if ch.isdigit():
-                            cleaned.append(ch)
-                        elif ch in mapping:
-                            cleaned.append(mapping[ch])
-                digits_str = "".join(cleaned).lstrip("0")
-                if digits_str:
-                    try:
-                        v = int(digits_str)
-                        if 0 < v <= 25_000_000:
-                            candidates.append(v)
-                    except ValueError:
-                        pass
-            if not candidates:
-                return 0
-            # Prefer candidate with longest digit string
-            candidates.sort(key=lambda x: len(str(x)), reverse=True)
-            return candidates[0]
+            all_words = []
+            for s in (2, 3, 1):
+                ws = self._ocr.recognize(c, scale=s)
+                for w in ws:
+                    # Ignore small icon edge artifacts
+                    if w.x < 6 and w.w < 15 and w.text in "026oO":
+                        continue
+                    overlap = False
+                    for existing in all_words:
+                        if not (w.x + w.w < existing.x - 3 or w.x > existing.x + existing.w + 3):
+                            overlap = True
+                            break
+                    if not overlap:
+                        all_words.append(w)
+            all_words.sort(key=lambda w: w.x)
+            cleaned = []
+            for w in all_words:
+                for ch in w.text:
+                    if ch.isdigit():
+                        cleaned.append(ch)
+                    elif ch in mapping:
+                        cleaned.append(mapping[ch])
+            digits_str = "".join(cleaned).lstrip("0")
+            return int(digits_str) if digits_str else 0
 
-        return Loot(
-            gold=parse_crop(img[regions["gold"][1]:regions["gold"][3], regions["gold"][0]:regions["gold"][2]]),
-            elixir=parse_crop(img[regions["elixir"][1]:regions["elixir"][3], regions["elixir"][0]:regions["elixir"][2]]),
-            dark=parse_crop(img[regions["dark"][1]:regions["dark"][3], regions["dark"][0]:regions["dark"][2]]),
-        )
+        g = parse_slice(crop_g)
+        e = parse_slice(crop_e)
+        d = parse_slice(crop_d)
+
+        # Sanity filter: max realistic loot in CoC multiplayer is 2.5 million
+        if g > 2_500_000 and len(str(g)) >= 7:
+            g = int(str(g)[1:])
+        if e > 2_500_000 and len(str(e)) >= 7:
+            e = int(str(e)[1:])
+
+        return Loot(gold=g, elixir=e, dark=d)
     # ------------------------------------------------------------------
     # Builder status
     # ------------------------------------------------------------------
