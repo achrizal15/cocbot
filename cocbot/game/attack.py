@@ -141,23 +141,29 @@ class Attacker:
                 self.vision.find_button(img_prep, "serang", region=(900, 580, 1280, 720))
                 or _BTN_SERANG
             )
-            self.device.tap(*btn_serang, jitter=4)
-            self._sleep(1000, 1500)
+            # Tap tombol Serang! dengan jeda yang pasti
+            self.device.tap(*btn_serang, jitter=2)
+            self._sleep(800, 1200)
 
-            # Cek pop-up konfirmasi pasukan belum siap jika muncul
+            # Cek jika ada pop-up konfirmasi (pasukan belum siap / pahlawan sedang pulih / mantra kurang)
             img_modal = self.device.screenshot()
-            if self.vision.has_text(img_modal, ["belum", "siap", "yakin", "lengkap"]):
-                log.info("[FARMING] Pop-up 'Pasukan belum lengkap' terdeteksi -> Menekan Konfirmasi...")
+            if self.vision.has_text(img_modal, ["belum", "siap", "yakin", "lengkap", "serang", "tidur", "pulih"]):
+                log.info("[FARMING] Pop-up konfirmasi 'Pasukan/Pahlawan belum siap' terdeteksi -> Menekan Konfirmasi...")
                 btn_ok = (
-                    self.vision.find_button(img_modal, "oke")
-                    or self.vision.find_button(img_modal, "serang")
-                    or self.vision.find_button(img_modal, "ya")
+                    self.vision.find_button(img_modal, "oke", region=(500, 350, 900, 550))
+                    or self.vision.find_button(img_modal, "serang", region=(500, 350, 900, 550))
+                    or self.vision.find_button(img_modal, "ya", region=(500, 350, 900, 550))
                     or (775, 465)
                 )
-                self.device.tap(*btn_ok, jitter=3)
-                self._sleep(1500, 2500)
+                self.device.tap(*btn_ok, jitter=2)
+                self._sleep(1500, 2200)
+            elif self.vision.detect_screen(img_modal) == ScreenType.ARMY_PREP:
+                # Jika masih di ARMY_PREP (ketukan pertama belum tembus), tap sekali lagi
+                self.device.tap(*btn_serang, jitter=2)
+                self._sleep(1000, 1500)
 
-            if not self._wait_for_search(30):
+            # Tunggu awan matchmaking CoC selesai (di TH15/16 pencarian musuh bisa butuh 30-60 detik)
+            if not self._wait_for_search(65):
                 log.warning("[FARMING] Matchmaking berlangsung lama / belum masuk ke desa lawan")
                 return False
         elif screen_reached == ScreenType.SEARCH:
@@ -170,8 +176,9 @@ class Attacker:
 
         log.info("[FARMING] Berhasil masuk ke pertempuran desa lawan!")
         return True
-    def _wait_for_search(self, timeout: float) -> bool:
-        """Wait for SEARCH or BATTLE screen (has 'rampasan')."""
+
+    def _wait_for_search(self, timeout: float = 65) -> bool:
+        """Wait for SEARCH or BATTLE screen (has 'rampasan'). Tolerates cloud matchmaking up to 65s."""
         from cocbot.vision import ScreenType
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
@@ -179,9 +186,18 @@ class Attacker:
             screen = self.vision.detect_screen(img)
             if screen in (ScreenType.SEARCH, ScreenType.BATTLE):
                 return True
-            if self.vision.has_text(img, ["rampasan", "berikut"]):
+            if self.vision.has_text(img, ["rampasan", "tersedia", "berikut"]):
                 return True
-            self._sleep(800, 1200)
+            # Dismiss pop-up modal jika muncul terlambat di tengah awan
+            if self.vision.has_text(img, ["belum", "siap", "yakin", "lengkap"]):
+                btn_ok = (
+                    self.vision.find_button(img, "oke", region=(500, 350, 900, 550))
+                    or self.vision.find_button(img, "serang", region=(500, 350, 900, 550))
+                    or (775, 465)
+                )
+                self.device.tap(*btn_ok, jitter=2)
+                self._sleep(1000, 1500)
+            self._sleep(1000, 1500)
         return False
 
     def search_target(self) -> Loot | None:

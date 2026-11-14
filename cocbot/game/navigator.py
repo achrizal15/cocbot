@@ -27,8 +27,8 @@ _BTN = {
 }
 
 # Common popup-close regions
-_POPUP_CLOSE_X = (720, 120)        # generic X in top-right of centred modal
-_OFFER_CLOSE_X = (730, 95)         # offer/promo X
+_POPUP_CLOSE_X = (1230, 55)        # generic X in top-right of modal
+_OFFER_CLOSE_X = (1230, 55)         # offer/promo X (top-right red button)
 _RELOAD_BTN    = (420, 428)        # "Reload" or "MUAT ULANG GAME" button
 _SCREEN_CENTER = (640, 360)
 
@@ -105,7 +105,7 @@ class Navigator:
             # If on Army Prep, tap close X at top-right (1235, 35)
             if screen == ScreenType.ARMY_PREP:
                 log.info("[NAVIGASI] Menutup layar Persiapan Pasukan...")
-                self.device.tap(1235, 35, jitter=4)
+                self.device.tap(1236, 65, jitter=3)
                 self._sleep(800, 1500)
                 continue
 
@@ -202,11 +202,11 @@ class Navigator:
             self._sleep(500, 900)
             return True
 
-        # Promotional offers
-        if self.vision.has_text(img, ["penawaran", "offer", "spesial", "special"]):
-            log.info("Popup: offer – closing")
+        # Promotional offers & skin popups
+        if self.vision.has_text(img, ["penawaran", "offer", "spesial", "special", "paket", "adipati", "titan"]):
+            log.info("Popup: offer / promo – closing via (1230, 55)")
             self.device.tap(*_OFFER_CLOSE_X, jitter=3)
-            self._sleep(500, 900)
+            self._sleep(600, 1000)
             return True
 
         # Clan war / league / event banners
