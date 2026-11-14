@@ -260,7 +260,7 @@ class Attacker:
         spell_targets = [(640, 340), (590, 300), (690, 380), (640, 420)]
 
         def _get_cx(s: int) -> int:
-            return int(127 + s * 100)
+            return int(145 + s * 100)
 
         # ── Pass 1: Kuras tuntas setiap kotak (Troops, Siege, Hero, Spell) ───
         for s_idx in range(total_slots):
@@ -281,12 +281,11 @@ class Attacker:
             self.device.hold(pt[0], pt[1], duration_ms=2000)
             time.sleep(0.08)
 
-            # 3. Tap di area base untuk melempar mantra (jika slot ini adalah spell)
-            spt = spell_targets[s_idx % len(spell_targets)]
-            self.device.tap(spt[0], spt[1], jitter=4)
-            time.sleep(0.06)
-            self.device.tap(spt[0], spt[1], jitter=4)
-            time.sleep(0.06)
+            # 3. Lempar mantra beruntun (8x tap cepat ke base) agar stack mantra isi 4 s/d 8 habis tuntas (x0)
+            for rep in range(8):
+                spt = spell_targets[(s_idx + rep) % len(spell_targets)]
+                self.device.tap(spt[0], spt[1], jitter=6)
+                time.sleep(0.04)
 
         # ── Pass 2: Clean sweep (sapuan kedua untuk menguras sisa unit) ──────
         log.info("[SERANG - STEP 3] Melakukan sapuan kedua (clean sweep)...")
@@ -300,9 +299,10 @@ class Attacker:
             time.sleep(0.06)
             self.device.hold(pt[0], pt[1], duration_ms=1500)
             time.sleep(0.06)
-            spt = spell_targets[(s_idx + 1) % len(spell_targets)]
-            self.device.tap(spt[0], spt[1], jitter=4)
-            time.sleep(0.06)
+            for rep in range(4):
+                spt = spell_targets[(s_idx + rep) % len(spell_targets)]
+                self.device.tap(spt[0], spt[1], jitter=6)
+                time.sleep(0.04)
 
         # ── Pass 3: Aktivasi kemampuan 4 Hero setelah 4 detik ───────────────
         log.info("[SERANG - STEP 3] Menunggu 4 detik lalu mengaktifkan kemampuan 4 Hero...")
@@ -451,7 +451,7 @@ class Attacker:
                 return True
             self._sleep(1000, 1800)
     def _detect_tray_slots(self, img: np.ndarray | None = None) -> tuple[int, list[int]]:
-        centers = [int(127 + i * 100) for i in range(10)]
+        centers = [int(145 + i * 100) for i in range(10)]
         return 10, centers
     def _get_slot_center(self, slot_idx: int, img: np.ndarray | None = None) -> tuple[int, int]:
         """Compute screen (x, y) center coordinates for a slot."""
